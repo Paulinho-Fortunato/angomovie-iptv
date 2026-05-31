@@ -2,96 +2,66 @@
 <html lang="pt-AO">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Player | AngoMovie</title>
-    
-    <!-- Usando CDN da Cloudflare (mais confiável e menos bloqueado) -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.6.1/video-js.min.css" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
     <style>
-        :root { --fundo: #050a18; --vermelho: #e50914; }
-        body { background: #000; margin: 0; font-family: 'Montserrat', sans-serif; color: #fff; overflow: hidden; }
-        .nav-player { background: var(--fundo); padding: 15px 25px; display: flex; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); height: 60px; box-sizing: border-box; }
-        .btn-voltar { background: var(--vermelho); color: white; text-decoration: none; padding: 8px 18px; border-radius: 4px; font-size: 12px; font-weight: 700; margin-right: 20px; }
-        .video-wrapper { width: 100vw; height: calc(100vh - 60px); background: #000; position: relative; }
-        .video-js { width: 100% !important; height: 100% !important; }
-        
-        #status { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10; display: block; }
-        .spinner { border: 4px solid rgba(255,255,255,0.1); border-left-color: var(--vermelho); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        body { background: #000; margin: 0; color: #fff; font-family: 'Montserrat', sans-serif; text-align: center; }
+        .nav { background: #050a18; padding: 15px; border-bottom: 1px solid #1f2937; display: flex; align-items: center; }
+        .back { background: #e50914; color: #fff; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 12px; margin-right: 20px; }
+        #video-container { width: 100vw; height: calc(100vh - 65px); background: #000; position: relative; }
+        video { width: 100%; height: 100%; outline: none; }
+        #msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); padding: 20px; border-radius: 10px; display: none; }
     </style>
 </head>
 <body>
-
-    <nav class="nav-player">
-        <a href="index.html" class="btn-voltar">← Voltar</a>
-        <div id="nome-canal" style="font-size: 14px; font-weight: 700;">Carregando...</div>
-    </nav>
-
-    <div class="video-wrapper">
-        <div id="status">
-            <div class="spinner"></div>
-            <p id="status-text">Conectando ao sinal...</p>
-        </div>
-        <video id="p" class="video-js vjs-big-play-centered" playsinline></video>
+    <div class="nav">
+        <a href="index.html" class="back">VOLTAR</a>
+        <span id="title">Carregando...</span>
+    </div>
+    <div id="video-container">
+        <div id="msg">Tentando conectar ao sinal...</div>
+        <video id="p" controls autoplay playsinline></video>
     </div>
 
-    <!-- Bibliotecas via Cloudflare CDN (mais seguras) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.6.1/video.min.js"></script>
-
     <script>
-        const WORKER_URL = "https://api-angomovie.lucreciapaulo93.workers.dev";
+        const WORKER = "https://api-angomovie.lucreciapaulo93.workers.dev";
         const params = new URLSearchParams(window.location.search);
         const streamId = params.get('id');
-        const canalNome = params.get('name') || 'Canal de TV';
-        document.getElementById('nome-canal').innerText = canalNome;
+        document.getElementById('title').innerText = params.get('name') || 'TV';
 
-        const videoUrl = `${WORKER_URL}?stream_id=${streamId}`;
+        const videoUrl = `${WORKER}?stream_id=${streamId}`;
         const video = document.getElementById('p');
+        const msg = document.getElementById('msg');
 
-        // Inicializa Video.js SEM persistência de dados (evita o bloqueio de tracking)
-        const player = videojs('p', {
-            autoplay: true,
-            controls: true,
-            preload: 'auto',
-            persistConfig: false, // DESATIVA o acesso ao storage do navegador
-            html5: { vhs: { overrideNative: true } }
-        });
+        function startPlayer() {
+            if (Hls.isSupported()) {
+                const hls = new Hls({
+                    manifestLoadingMaxRetry: 10,
+                    manifestLoadingRetryDelay: 1000,
+                    xhrSetup: function(xhr) { xhr.withCredentials = false; }
+                });
+                
+                hls.loadSource(videoUrl);
+                hls.attachMedia(video);
+                
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        msg.style.display = 'block';
+                        msg.innerText = "Sinal instável, reconectando...";
+                        console.log("Erro fatal, tentando recuperar...");
+                        hls.startLoad(); // Tenta carregar novamente
+                    }
+                });
 
-        function hideStatus() { document.getElementById('status').style.display = 'none'; }
-        function setStatus(msg) { document.getElementById('status-text').innerText = msg; }
-
-        if (Hls.isSupported()) {
-            const hls = new Hls({
-                enableWorker: true,
-                lowLatencyMode: true,
-                backBufferLength: 90
-            });
-            
-            hls.loadSource(videoUrl);
-            hls.attachMedia(video);
-            
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                hideStatus();
-                player.play().catch(() => setStatus("Clique para iniciar o play"));
-            });
-
-            hls.on(Hls.Events.ERROR, (event, data) => {
-                if (data.fatal) {
-                    console.warn("Erro HLS fatal:", data.type);
-                    hls.recoverMediaError();
-                }
-            });
-        } 
-        else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = videoUrl;
-            video.addEventListener('loadedmetadata', hideStatus);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    msg.style.display = 'none';
+                    video.play();
+                });
+            }
         }
 
-        // Se após 10 segundos não carregar, tenta forçar
-        setTimeout(() => { if(video.paused) setStatus("Sinal fraco, aguarde ou tente outro canal."); }, 10000);
+        startPlayer();
     </script>
 </body>
 </html>
