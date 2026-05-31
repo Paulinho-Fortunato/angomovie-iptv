@@ -2,29 +2,118 @@
 <html lang="pt-AO">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Player | AngoMovie</title>
-    <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet" />
+    
+    <!-- Video.js CSS -->
+    <link href="https://vjs.zencdn.net/8.6.1/video-js.css" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+    
     <style>
-        body { background: #000; margin: 0; font-family: 'Montserrat', sans-serif; color: #fff; }
-        .nav-player { background: #050a18; padding: 15px 25px; display: flex; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .btn-voltar { background: #e50914; color: white; text-decoration: none; padding: 8px 18px; border-radius: 4px; font-size: 12px; font-weight: 700; margin-right: 20px; }
-        .video-wrapper { width: 100vw; height: calc(100vh - 65px); }
-        .video-js { width: 100% !important; height: 100% !important; }
+        :root {
+            --fundo-principal: #050a18;
+            --destaque-principal: #e50914;
+        }
+
+        body {
+            background: #000;
+            margin: 0;
+            padding: 0;
+            font-family: 'Montserrat', sans-serif;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .nav-player {
+            background: var(--fundo-principal);
+            padding: 15px 25px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            height: 60px;
+            box-sizing: border-box;
+        }
+
+        .btn-voltar {
+            background: var(--destaque-principal);
+            color: white;
+            text-decoration: none;
+            padding: 8px 18px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-right: 20px;
+            transition: 0.3s;
+        }
+
+        .btn-voltar:hover {
+            background: #f40612;
+        }
+
+        .canal-titulo {
+            font-size: 14px;
+            font-weight: 700;
+            color: white;
+            text-transform: uppercase;
+        }
+
+        .video-wrapper {
+            width: 100vw;
+            height: calc(100vh - 60px);
+            background: #000;
+            position: relative;
+        }
+
+        .video-js {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Loading e Erros */
+        #status-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 10;
+            display: none;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.1);
+            border-left-color: var(--destaque-principal);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
     <nav class="nav-player">
         <a href="index.html" class="btn-voltar">← Voltar</a>
-        <div id="nome-canal" style="font-size: 14px; font-weight: 700;">Carregando...</div>
+        <div class="canal-titulo" id="nome-canal">Carregando...</div>
     </nav>
 
     <div class="video-wrapper">
-        <video id="p" class="video-js vjs-big-play-centered" controls autoplay preload="auto"></video>
+        <div id="status-overlay">
+            <div class="spinner"></div>
+            <p id="status-text">Sintonizando canal...</p>
+        </div>
+
+        <video id="p" class="video-js vjs-big-play-centered" controls autoplay playsinline></video>
     </div>
 
-    <script src="https://vjs.zencdn.net/7.20.3/video.min.js"></script>
+    <!-- Bibliotecas: HLS.js e Video.js -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://vjs.zencdn.net/8.6.1/video.min.js"></script>
+
     <script>
         const WORKER_URL = "https://api-angomovie.lucreciapaulo93.workers.dev";
         const params = new URLSearchParams(window.location.search);
@@ -32,15 +121,84 @@
         const canalNome = params.get('name') || 'Canal de TV';
         
         document.getElementById('nome-canal').innerText = canalNome;
+        const statusOverlay = document.getElementById('status-overlay');
+        const statusText = document.getElementById('status-text');
 
-        // IMPORTANTE: Passamos o stream_id para o Worker para ele fazer o proxy do vídeo
-        const videoProxyUrl = `${WORKER_URL}?stream_id=${streamId}`;
+        // URL que passa pelo Cloudflare Worker para resolver HTTPS/Mixed Content
+        const videoUrl = `${WORKER_URL}?stream_id=${streamId}`;
 
-        const player = videojs('p');
-        player.src({
-            src: videoProxyUrl,
-            type: 'application/x-mpegURL'
+        const video = document.getElementById('p');
+
+        // Mostrar Loading
+        function showStatus(msg, loading = true) {
+            statusOverlay.style.display = 'block';
+            statusText.innerText = msg;
+            document.querySelector('.spinner').style.display = loading ? 'block' : 'none';
+        }
+        function hideStatus() {
+            statusOverlay.style.display = 'none';
+        }
+
+        showStatus("Sintonizando canal...");
+
+        // Inicializa o player com Video.js
+        const player = videojs('p', {
+            autoplay: true,
+            controls: true,
+            fluid: false,
+            html5: {
+                vhs: {
+                    overrideNative: true
+                }
+            }
         });
+
+        // Tenta tocar usando HLS.js (melhor para Live TV)
+        if (Hls.isSupported()) {
+            const hls = new Hls({
+                maxBufferLength: 30,
+                manifestLoadingTimeOut: 20000,
+                manifestLoadingMaxRetry: 5
+            });
+            
+            hls.loadSource(videoUrl);
+            hls.attachMedia(video);
+            
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                hideStatus();
+                video.play().catch(e => console.log("Autoplay bloqueado, clique para iniciar."));
+            });
+
+            hls.on(Hls.Events.ERROR, function(event, data) {
+                if (data.fatal) {
+                    switch(data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            showStatus("Erro de rede. Tentando reconectar...", true);
+                            hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            showStatus("Erro de mídia. Recuperando...", true);
+                            hls.recoverMediaError();
+                            break;
+                        default:
+                            showStatus("❌ Canal indisponível no momento.", false);
+                            break;
+                    }
+                }
+            });
+        } 
+        // Fallback para Safari (iPhone) que toca m3u8 nativamente
+        else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = videoUrl;
+            video.addEventListener('loadedmetadata', function() {
+                hideStatus();
+                video.play();
+            });
+            video.addEventListener('error', function() {
+                showStatus("❌ Canal indisponível.", false);
+            });
+        }
+
     </script>
 </body>
 </html>
