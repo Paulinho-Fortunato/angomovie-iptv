@@ -45,6 +45,28 @@
     // Fallback placeholder image (inline SVG data URL - no emoji to avoid encoding issues)
     const FALLBACK_IMAGE = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22150%22 height=%2280%22%3E%3Crect fill=%22%231a1f2e%22 width=%22150%22 height=%2280%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-family=%22Arial, sans-serif%22 font-size=%2214%22 fill=%22%23e50914%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-weight=%22bold%22%3ETV%3C/text%3E%3C/svg%3E';
 
+    // Convert HTTP to HTTPS to avoid mixed content warnings
+    function secureImageUrl(url) {
+        if (!url) return FALLBACK_IMAGE;
+        
+        // If it's a data URL or already HTTPS, return as-is
+        if (url.startsWith('data:') || url.startsWith('https://')) {
+            return url;
+        }
+        
+        // Convert HTTP to HTTPS
+        if (url.startsWith('http://')) {
+            return url.replace('http://', 'https://');
+        }
+        
+        // If no protocol, assume HTTPS
+        if (!url.startsWith('http')) {
+            return 'https://' + url;
+        }
+        
+        return url;
+    }
+
     async function loadCategories() {
         try {
             const res = await fetch('/api/proxy?action=get_live_categories');
@@ -78,8 +100,8 @@
             const grid = document.getElementById('channels-grid');
             grid.innerHTML = '';
             data.slice(0, 150).forEach(ch => {
-                // Use stream_icon if available, otherwise use fallback
-                const imageUrl = ch.stream_icon || FALLBACK_IMAGE;
+                // Secure the image URL (convert HTTP to HTTPS)
+                const imageUrl = secureImageUrl(ch.stream_icon);
                 
                 grid.innerHTML += `
                     <div class="canal-card" onclick="window.location.href='player.html?id=${ch.stream_id}&name=${encodeURIComponent(ch.name)}'">
