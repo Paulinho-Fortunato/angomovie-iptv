@@ -1,0 +1,8 @@
+{
+  "name": "angomovie-iptv",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@iptv/xtream-api": "latest"
+  }
+}
