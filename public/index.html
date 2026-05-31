@@ -23,7 +23,6 @@
         .canal-card { background: var(--fundo-cartao); border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.3s; }
         .canal-card:hover { transform: scale(1.05); border-color: var(--destaque-principal); box-shadow: 0 0 20px rgba(229, 9, 20, 0.3); }
         .canal-card img { width: 100%; height: 80px; object-fit: contain; margin-bottom: 10px; background: rgba(255,255,255,0.05); border-radius: 4px; }
-        .canal-card .img-placeholder { width: 100%; height: 80px; display: flex; align-items: center; justify-content: center; background: rgba(229, 9, 20, 0.1); border-radius: 4px; margin-bottom: 10px; font-size: 28px; }
         .canal-card p { font-size: 12px; font-weight: 700; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         h1 { color: var(--destaque-principal); padding: 0 20px; font-size: 22px; margin-bottom: 20px; }
     </style>
@@ -43,18 +42,8 @@
 </main>
 
 <script>
-    // Generate a data URL for a simple placeholder image (SVG-based)
-    function generatePlaceholder(text = 'TV') {
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="150" height="80">
-            <rect fill="#1a1f2e" width="150" height="80"/>
-            <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="14" fill="#e50914" 
-                  text-anchor="middle" dominant-baseline="middle" font-weight="bold">${text}</text>
-        </svg>`;
-        return 'data:image/svg+xml;base64,' + btoa(svg);
-    }
-
-    // Fallback placeholder image (data URL - no external dependency)
-    const FALLBACK_IMAGE = generatePlaceholder('📺');
+    // Fallback placeholder image (inline SVG data URL - no emoji to avoid encoding issues)
+    const FALLBACK_IMAGE = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22150%22 height=%2280%22%3E%3Crect fill=%22%231a1f2e%22 width=%22150%22 height=%2280%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-family=%22Arial, sans-serif%22 font-size=%2214%22 fill=%22%23e50914%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-weight=%22bold%22%3ETV%3C/text%3E%3C/svg%3E';
 
     async function loadCategories() {
         try {
