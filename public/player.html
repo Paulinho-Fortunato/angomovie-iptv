@@ -150,10 +150,10 @@
         // Show loader
         loaderElement.style.display = 'block';
 
-        // Direct stream URL - try both HTTP and HTTPS
+        // Direct stream URL - using HTTPS
         const directStreamUrl = `https://nitidez.pro/live/Marcio/123456/${streamId}.m3u8`;
 
-        // Initialize Video.js player with HLS plugin
+        // Initialize Video.js player with VHS plugin (updated from deprecated 'hls')
         const player = videojs('player', {
             controls: true,
             autoplay: true,
@@ -162,9 +162,10 @@
             responsive: true,
             playbackRates: [0.5, 1, 1.5, 2],
             html5: {
-                hls: {
+                vhs: {
                     overrideNative: true,
-                    enableLowInitialPlaylist: true
+                    enableLowInitialPlaylist: true,
+                    smoothQualityChange: true
                 }
             },
             controlBar: {
@@ -234,8 +235,8 @@
                         recommendation = 'Tente carregar novamente';
                         break;
                     case 2:
-                        errorText = 'Erro de rede';
-                        recommendation = 'Verifique sua conexão ou tente outro canal';
+                        errorText = 'Erro de rede - Possível certificado SSL inválido';
+                        recommendation = 'Verifique sua conexão ou contacte o suporte';
                         break;
                     case 3:
                         errorText = 'Carregamento interrompido';
@@ -243,7 +244,7 @@
                         break;
                     case 4:
                         errorText = 'Formato não suportado ou stream indisponível';
-                        recommendation = 'Este canal pode não estar disponível no momento';
+                        recommendation = 'Este canal pode não estar disponível no momento. Verifique o certificado SSL do servidor.';
                         break;
                 }
 
@@ -254,7 +255,8 @@
                     <div class="info-box">
                         Código: ${errorCode.code}<br>
                         Stream ID: ${streamId}<br>
-                        Tentativas: ${errorCount}
+                        Tentativas: ${errorCount}<br>
+                        URL: ${directStreamUrl}
                     </div>
                     <button class="back" onclick="location.reload()">🔄 Tentar Novamente</button>
                     <button class="back" onclick="goBack()" style="background: #666;">← Voltar para Canais</button>
