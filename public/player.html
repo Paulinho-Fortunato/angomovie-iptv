@@ -4,24 +4,21 @@
     <meta charset="UTF-8">
     <title>Player | AngoMovie</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
     <style>
-        body { background: #000; margin: 0; color: #fff; font-family: 'Montserrat', sans-serif; text-align: center; }
-        .nav { background: #050a18; padding: 15px; border-bottom: 1px solid #1f2937; display: flex; align-items: center; }
-        .back { background: #e50914; color: #fff; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 12px; margin-right: 20px; }
-        #video-container { width: 100vw; height: calc(100vh - 65px); background: #000; position: relative; }
-        video { width: 100%; height: 100%; outline: none; }
-        #msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); padding: 20px; border-radius: 10px; display: none; }
+        body { background: #000; margin: 0; color: #fff; font-family: sans-serif; }
+        .nav { background: #050a18; padding: 15px; border-bottom: 1px solid #1f2937; }
+        .back { background: #e50914; color: #fff; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; }
+        #video-container { width: 100vw; height: calc(100vh - 65px); }
+        video { width: 100%; height: 100%; }
     </style>
 </head>
 <body>
     <div class="nav">
-        <a href="index.html" class="back">VOLTAR</a>
+        <a href="index.html" class="back">← VOLTAR</a>
         <span id="title">Carregando...</span>
     </div>
     <div id="video-container">
-        <div id="msg">Tentando conectar ao sinal...</div>
-        <video id="p" controls autoplay playsinline></video>
+        <video id="video" controls autoplay playsinline></video>
     </div>
 
     <script>
@@ -31,37 +28,29 @@
         document.getElementById('title').innerText = params.get('name') || 'TV';
 
         const videoUrl = `${WORKER}?stream_id=${streamId}`;
-        const video = document.getElementById('p');
-        const msg = document.getElementById('msg');
+        const video = document.getElementById('video');
 
-        function startPlayer() {
-            if (Hls.isSupported()) {
-                const hls = new Hls({
-                    manifestLoadingMaxRetry: 10,
-                    manifestLoadingRetryDelay: 1000,
-                    xhrSetup: function(xhr) { xhr.withCredentials = false; }
-                });
-                
-                hls.loadSource(videoUrl);
-                hls.attachMedia(video);
-                
-                hls.on(Hls.Events.ERROR, function (event, data) {
-                    if (data.fatal) {
-                        msg.style.display = 'block';
-                        msg.innerText = "Sinal instável, reconectando...";
-                        console.log("Erro fatal, tentando recuperar...");
-                        hls.startLoad(); // Tenta carregar novamente
-                    }
-                });
-
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    msg.style.display = 'none';
-                    video.play();
-                });
-            }
+        if (Hls.isSupported()) {
+            const hls = new Hls({
+                // Configurações para evitar falhas de rede
+                manifestLoadingMaxRetry: 5,
+                levelLoadingMaxRetry: 5,
+                xhrSetup: function(xhr, url) {
+                    xhr.withCredentials = false; // Importante para evitar erros de CORS/Cookies
+                }
+            });
+            hls.loadSource(videoUrl);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+            
+            // Se houver erro, tenta recuperar
+            hls.on(Hls.Events.ERROR, (event, data) => {
+                if (data.fatal) hls.startLoad();
+            });
+        } 
+        else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = videoUrl;
         }
-
-        startPlayer();
     </script>
 </body>
 </html>
