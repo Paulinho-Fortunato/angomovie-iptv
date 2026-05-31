@@ -12,27 +12,38 @@
             --destaque-principal: #e50914;
             --texto-principal: #ffffff;
             --texto-suave: #b3b3b3;
-            --fonte-principal: "Montserrat", sans-serif;
         }
-        body { background: var(--fundo-principal); color: var(--texto-principal); font-family: var(--fonte-principal); margin: 0; display: flex; }
-        .sidebar { width: 260px; background: var(--fundo-secundario); height: 100vh; position: fixed; overflow-y: auto; border-right: 1px solid #1f2937; padding: 20px 0; }
+        body { 
+            background: var(--fundo-principal); 
+            color: var(--texto-principal); 
+            font-family: 'Montserrat', sans-serif; 
+            margin: 0; display: flex; 
+        }
+        .sidebar { 
+            width: 260px; background: var(--fundo-secundario); height: 100vh; 
+            position: fixed; overflow-y: auto; border-right: 1px solid #1f2937; 
+        }
         .main { margin-left: 260px; flex: 1; padding: 30px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 20px; }
-        .cat-link { display: block; padding: 10px 20px; color: var(--texto-suave); text-decoration: none; font-size: 14px; border-left: 3px solid transparent; cursor: pointer; }
+        .cat-link { 
+            display: block; padding: 12px 20px; color: var(--texto-suave); 
+            text-decoration: none; font-size: 13px; border-left: 3px solid transparent; 
+            cursor: pointer; transition: 0.2s;
+        }
         .cat-link:hover, .cat-link.active { background: rgba(229, 9, 20, 0.1); color: white; border-left-color: var(--destaque-principal); }
         .canal-card { background: var(--fundo-cartao); border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.3s; }
-        .canal-card:hover { transform: scale(1.05); border-color: var(--destaque-principal); box-shadow: 0 0 20px rgba(229, 9, 20, 0.3); }
-        .canal-card img { width: 100%; height: 80px; object-fit: contain; margin-bottom: 10px; background: rgba(255,255,255,0.05); border-radius: 4px; }
-        .canal-card p { font-size: 12px; font-weight: 700; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        h1 { color: var(--destaque-principal); padding: 0 20px; font-size: 22px; margin-bottom: 20px; }
+        .canal-card:hover { transform: translateY(-5px); border: 1px solid var(--destaque-principal); box-shadow: 0 10px 20px rgba(229, 9, 20, 0.2); }
+        .canal-card img { width: 100%; height: 80px; object-fit: contain; margin-bottom: 10px; }
+        .canal-name { font-size: 11px; font-weight: 700; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .logo { padding: 25px; color: var(--destaque-principal); font-weight: 900; font-size: 20px; }
     </style>
 </head>
 <body>
 
-<aside class="sidebar" id="sidebar">
-    <h1>ANGOMOVIE</h1>
-    <div class="cat-link active" onclick="loadChannels('')">🏠 Todos os Canais</div>
-    <!-- Categorias serão carregadas aqui -->
+<aside class="sidebar">
+    <div class="logo">ANGOMOVIE</div>
+    <div class="cat-link active" onclick="loadChannels('')">🏠 TODOS OS CANAIS</div>
+    <div id="categories-list"></div>
 </aside>
 
 <main class="main">
@@ -42,79 +53,36 @@
 </main>
 
 <script>
-    // Fallback placeholder image (inline SVG data URL - no emoji to avoid encoding issues)
-    const FALLBACK_IMAGE = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22150%22 height=%2280%22%3E%3Crect fill=%22%231a1f2e%22 width=%22150%22 height=%2280%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-family=%22Arial, sans-serif%22 font-size=%2214%22 fill=%22%23e50914%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 font-weight=%22bold%22%3ETV%3C/text%3E%3C/svg%3E';
-
-    // Convert HTTP to HTTPS to avoid mixed content warnings
-    function secureImageUrl(url) {
-        if (!url) return FALLBACK_IMAGE;
-        
-        // If it's a data URL or already HTTPS, return as-is
-        if (url.startsWith('data:') || url.startsWith('https://')) {
-            return url;
-        }
-        
-        // Convert HTTP to HTTPS
-        if (url.startsWith('http://')) {
-            return url.replace('http://', 'https://');
-        }
-        
-        // If no protocol, assume HTTPS
-        if (!url.startsWith('http')) {
-            return 'https://' + url;
-        }
-        
-        return url;
-    }
-
+    // Agora usando os campos que a biblioteca @iptv/xtream-api padroniza
     async function loadCategories() {
-        try {
-            const res = await fetch('/api/proxy?action=get_live_categories');
-            const data = await res.json();
-            const sidebar = document.getElementById('sidebar');
-            data.forEach(cat => {
-                const a = document.createElement('div');
-                a.className = 'cat-link';
-                a.innerText = cat.category_name;
-                a.onclick = () => loadChannels(cat.category_id);
-                sidebar.appendChild(a);
-            });
-        } catch (error) {
-            console.error('Error loading categories:', error);
-        }
-    }
-
-    function handleImageError(img) {
-        // If image fails to load, use our fallback data URL
-        if (img.src !== FALLBACK_IMAGE) {
-            img.src = FALLBACK_IMAGE;
-            img.onerror = null; // Prevent infinite loop
-        }
+        const res = await fetch('/api/proxy?action=get_live_categories');
+        const data = await res.json();
+        const list = document.getElementById('categories-list');
+        data.forEach(cat => {
+            const div = document.createElement('div');
+            div.className = 'cat-link';
+            // A biblioteca padroniza para category_name ou categoryName
+            div.innerText = cat.category_name; 
+            div.onclick = () => loadChannels(cat.category_id);
+            list.appendChild(div);
+        });
     }
 
     async function loadChannels(catId) {
-        try {
-            document.getElementById('channels-grid').innerHTML = '<p>Carregando...</p>';
-            const res = await fetch(`/api/proxy?action=get_live_streams${catId ? '&category_id='+catId : ''}`);
-            const data = await res.json();
-            const grid = document.getElementById('channels-grid');
-            grid.innerHTML = '';
-            data.slice(0, 150).forEach(ch => {
-                // Secure the image URL (convert HTTP to HTTPS)
-                const imageUrl = secureImageUrl(ch.stream_icon);
-                
-                grid.innerHTML += `
-                    <div class="canal-card" onclick="window.location.href='player.html?id=${ch.stream_id}&name=${encodeURIComponent(ch.name)}'">
-                        <img src="${imageUrl}" 
-                             onerror="handleImageError(this)"
-                             alt="${ch.name}">
-                        <p>${ch.name}</p>
-                    </div>`;
-            });
-        } catch (error) {
-            console.error('Error loading channels:', error);
-            document.getElementById('channels-grid').innerHTML = '<p>Erro ao carregar canais. Tente novamente.</p>';
-        }
+        document.getElementById('channels-grid').innerHTML = '<p>Buscando...</p>';
+        const url = `/api/proxy?action=get_live_streams${catId ? '&category_id='+catId : ''}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const grid = document.getElementById('channels-grid');
+        grid.innerHTML = '';
+        
+        data.slice(0, 100).forEach(ch => {
+            grid.innerHTML += `
+                <div class="canal-card" onclick="location.href='player.html?id=${ch.stream_id}&name=${encodeURIComponent(ch.name)}'">
+                    <img src="${ch.stream_icon || 'https://via.placeholder.com/150x80?text=TV'}" onerror="this.src='https://via.placeholder.com/150x80?text=TV'">
+                    <div class="canal-name">${ch.name}</div>
+                </div>`;
+        });
     }
 
     loadCategories();
