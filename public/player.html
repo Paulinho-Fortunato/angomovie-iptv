@@ -150,7 +150,10 @@
         // Show loader
         loaderElement.style.display = 'block';
 
-        // Initialize Video.js player
+        // Direct stream URL - try both HTTP and HTTPS
+        const directStreamUrl = `https://nitidez.pro/live/Marcio/123456/${streamId}.m3u8`;
+
+        // Initialize Video.js player with HLS plugin
         const player = videojs('player', {
             controls: true,
             autoplay: true,
@@ -158,6 +161,12 @@
             fluid: true,
             responsive: true,
             playbackRates: [0.5, 1, 1.5, 2],
+            html5: {
+                hls: {
+                    overrideNative: true,
+                    enableLowInitialPlaylist: true
+                }
+            },
             controlBar: {
                 children: [
                     'playToggle',
@@ -172,17 +181,17 @@
             }
         });
 
-        // Use local API proxy to bypass SSL certificate issues
-        // The backend handles the actual stream URL with proper certificate verification
-        const streamUrl = `/api/proxy?action=get_stream_url&stream_id=${streamId}`;
+        console.log('[AngoMovie] Player initialized');
+        console.log('[AngoMovie] Stream ID:', streamId);
+        console.log('[AngoMovie] Direct URL:', directStreamUrl);
 
-        // Set video source - using local proxy
+        // Try loading the stream directly first
         player.src({
-            src: streamUrl,
+            src: directStreamUrl,
             type: 'application/x-mpegURL'
         });
 
-        // Event handlers for better UX
+        // Event handlers
         player.on('play', function() {
             loaderElement.style.display = 'none';
             errorElement.style.display = 'none';
@@ -191,7 +200,7 @@
         player.on('playing', function() {
             loaderElement.style.display = 'none';
             errorElement.style.display = 'none';
-            console.log('[AngoMovie] Stream playing: ' + streamName);
+            console.log('[AngoMovie] ▶️ Stream playing:', streamName);
         });
 
         player.on('waiting', function() {
@@ -202,48 +211,59 @@
             loaderElement.style.display = 'none';
         });
 
+        let errorCount = 0;
         player.on('error', function() {
+            errorCount++;
             loaderElement.style.display = 'none';
             const errorCode = player.error();
+            
             if (errorCode) {
-                console.error('[AngoMovie] Player Error:', {
+                console.error('[AngoMovie] ❌ Player Error:', {
                     code: errorCode.code,
                     message: errorCode.message,
                     streamId: streamId,
-                    url: streamUrl
+                    attempt: errorCount
                 });
                 
                 let errorText = 'Erro desconhecido';
+                let recommendation = '';
+
                 switch(errorCode.code) {
                     case 1:
                         errorText = 'Carregamento cancelado';
+                        recommendation = 'Tente carregar novamente';
                         break;
                     case 2:
-                        errorText = 'Erro de rede - verifique sua conexão';
+                        errorText = 'Erro de rede';
+                        recommendation = 'Verifique sua conexão ou tente outro canal';
                         break;
                     case 3:
                         errorText = 'Carregamento interrompido';
+                        recommendation = 'O servidor pode estar indisponível';
                         break;
                     case 4:
-                        errorText = 'Formato não suportado ou servidor indisponível';
+                        errorText = 'Formato não suportado ou stream indisponível';
+                        recommendation = 'Este canal pode não estar disponível no momento';
                         break;
                 }
 
                 errorElement.innerHTML = `
                     <strong>⚠️ Erro ao carregar o stream</strong><br>
                     <small>${errorText}</small><br>
+                    <small style="color: #ccc;">${recommendation}</small><br>
                     <div class="info-box">
                         Código: ${errorCode.code}<br>
-                        Stream ID: ${streamId}
+                        Stream ID: ${streamId}<br>
+                        Tentativas: ${errorCount}
                     </div>
                     <button class="back" onclick="location.reload()">🔄 Tentar Novamente</button>
-                    <button class="back" onclick="goBack()" style="background: #666;">← Voltar</button>
+                    <button class="back" onclick="goBack()" style="background: #666;">← Voltar para Canais</button>
                 `;
                 errorElement.style.display = 'block';
             }
         });
 
-        // Dispose on page unload to free resources
+        // Dispose on page unload
         window.addEventListener('beforeunload', function() {
             if (player) {
                 player.dispose();
@@ -252,7 +272,6 @@
 
         // Back button functionality
         function goBack() {
-            // Store scroll position before leaving
             sessionStorage.setItem('channels-scroll', window.scrollY);
             window.history.back();
         }
@@ -266,10 +285,15 @@
             }
         });
 
-        // Console info
-        console.log('[AngoMovie] Player initialized');
-        console.log('[AngoMovie] Stream ID:', streamId);
-        console.log('[AngoMovie] Using API proxy for stream URL');
+        // Disable tracking prevention blocking
+        if (typeof sessionStorage !== 'undefined') {
+            try {
+                sessionStorage.setItem('test', '1');
+                sessionStorage.removeItem('test');
+            } catch(e) {
+                console.warn('[AngoMovie] SessionStorage blocked by tracking prevention');
+            }
+        }
     </script>
 </body>
 </html>
