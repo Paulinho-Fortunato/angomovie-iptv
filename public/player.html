@@ -100,6 +100,18 @@
             text-align: center;
             max-width: 90%;
             z-index: 5;
+            line-height: 1.6;
+        }
+        .error-message button {
+            margin-top: 15px;
+        }
+        .info-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: monospace;
         }
     </style>
 </head>
@@ -160,11 +172,11 @@
             }
         });
 
-        // Construct stream URL - HTTPS REQUIRED for CORS compliance
-        // Replace HTTP with HTTPS to fix mixed content errors
-        const streamUrl = `https://nitidez.pro/live/Marcio/123456/${streamId}.m3u8`;
+        // Use local API proxy to bypass SSL certificate issues
+        // The backend handles the actual stream URL with proper certificate verification
+        const streamUrl = `/api/proxy?action=get_stream_url&stream_id=${streamId}`;
 
-        // Set video source
+        // Set video source - using local proxy
         player.src({
             src: streamUrl,
             type: 'application/x-mpegURL'
@@ -201,20 +213,33 @@
                     url: streamUrl
                 });
                 
+                let errorText = 'Erro desconhecido';
+                switch(errorCode.code) {
+                    case 1:
+                        errorText = 'Carregamento cancelado';
+                        break;
+                    case 2:
+                        errorText = 'Erro de rede - verifique sua conexão';
+                        break;
+                    case 3:
+                        errorText = 'Carregamento interrompido';
+                        break;
+                    case 4:
+                        errorText = 'Formato não suportado ou servidor indisponível';
+                        break;
+                }
+
                 errorElement.innerHTML = `
                     <strong>⚠️ Erro ao carregar o stream</strong><br>
-                    <small>Código: ${errorCode.code}</small><br>
-                    <small>${errorCode.message || 'Verifique sua conexão'}</small><br>
-                    <button class="back" onclick="location.reload()" style="margin-top: 15px;">Tentar Novamente</button>
+                    <small>${errorText}</small><br>
+                    <div class="info-box">
+                        Código: ${errorCode.code}<br>
+                        Stream ID: ${streamId}
+                    </div>
+                    <button class="back" onclick="location.reload()">🔄 Tentar Novamente</button>
+                    <button class="back" onclick="goBack()" style="background: #666;">← Voltar</button>
                 `;
                 errorElement.style.display = 'block';
-            }
-        });
-
-        // Network error handling
-        player.on('error', function() {
-            if (player.error() && player.error().code === 2) {
-                console.warn('[AngoMovie] Network error - checking stream availability');
             }
         });
 
@@ -244,7 +269,7 @@
         // Console info
         console.log('[AngoMovie] Player initialized');
         console.log('[AngoMovie] Stream ID:', streamId);
-        console.log('[AngoMovie] Stream URL:', streamUrl);
+        console.log('[AngoMovie] Using API proxy for stream URL');
     </script>
 </body>
 </html>
