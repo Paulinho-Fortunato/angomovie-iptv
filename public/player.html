@@ -2,24 +2,25 @@
 <html lang="pt-AO">
 <head>
     <meta charset="UTF-8">
-    <title>Player | AngoMovie</title>
+    <title>AngoMovie | Player</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
     <style>
-        body { background: #000; margin: 0; color: #fff; font-family: sans-serif; }
-        .nav { background: #050a18; padding: 15px; border-bottom: 1px solid #1f2937; }
-        .back { background: #e50914; color: #fff; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; }
-        #video-container { width: 100vw; height: calc(100vh - 65px); }
-        video { width: 100%; height: 100%; }
+        body { background: #000; margin: 0; color: #fff; font-family: 'Montserrat', sans-serif; }
+        .nav { background: #050a18; padding: 15px; display: flex; align-items: center; border-bottom: 1px solid #1f2937; }
+        .back { background: #e50914; color: #fff; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 12px; margin-right: 20px; font-weight: bold;}
+        video { width: 100vw; height: calc(100vh - 65px); background: #000; }
+        #loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
     </style>
 </head>
 <body>
     <div class="nav">
         <a href="index.html" class="back">← VOLTAR</a>
-        <span id="title">Carregando...</span>
+        <span id="title">Carregando canal...</span>
     </div>
-    <div id="video-container">
-        <video id="video" controls autoplay playsinline></video>
-    </div>
+    
+    <div id="loading">Sintonizando...</div>
+    <video id="video" controls autoplay playsinline></video>
 
     <script>
         const WORKER = "https://api-angomovie.lucreciapaulo93.workers.dev";
@@ -27,29 +28,32 @@
         const streamId = params.get('id');
         document.getElementById('title').innerText = params.get('name') || 'TV';
 
-        const videoUrl = `${WORKER}?stream_id=${streamId}`;
+        const videoUrl = `${WORKER}/?stream_id=${streamId}`;
         const video = document.getElementById('video');
 
         if (Hls.isSupported()) {
             const hls = new Hls({
-                // Configurações para evitar falhas de rede
-                manifestLoadingMaxRetry: 5,
-                levelLoadingMaxRetry: 5,
-                xhrSetup: function(xhr, url) {
-                    xhr.withCredentials = false; // Importante para evitar erros de CORS/Cookies
-                }
+                enableWorker: true,
+                lowLatencyMode: true,
+                manifestLoadingMaxRetry: 10,
+                levelLoadingMaxRetry: 10
             });
             hls.loadSource(videoUrl);
             hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
-            
-            // Se houver erro, tenta recuperar
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                document.getElementById('loading').style.display = 'none';
+                video.play();
+            });
             hls.on(Hls.Events.ERROR, (event, data) => {
                 if (data.fatal) hls.startLoad();
             });
         } 
         else if (video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = videoUrl;
+            video.onloadedmetadata = () => {
+                document.getElementById('loading').style.display = 'none';
+                video.play();
+            };
         }
     </script>
 </body>
