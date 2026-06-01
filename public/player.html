@@ -30,30 +30,93 @@
 
         const videoUrl = `${WORKER}/?stream_id=${streamId}`;
         const video = document.getElementById('video');
+        const loading = document.getElementById('loading');
+        let isLoadingVisible = true;
+
+        // Função para esconder o loading (com proteção para não chamar múltiplas vezes)
+        function hideLoading() {
+            if (isLoadingVisible) {
+                loading.style.display = 'none';
+                isLoadingVisible = false;
+            }
+        }
+
+        // Timeout de segurança: se após 15 segundos não carregar, esconde o loading mesmo assim
+        setTimeout(() => {
+            hideLoading();
+        }, 15000);
 
         if (Hls.isSupported()) {
             const hls = new Hls({
                 enableWorker: true,
-                lowLatencyMode: true,
-                manifestLoadingMaxRetry: 10,
-                levelLoadingMaxRetry: 10
+                lowLatencyMode: false,
+                manifestLoadingMaxRetry: 5,
+                levelLoadingMaxRetry: 5,
+                manifestLoadingTimeOut: 10000,
+                levelLoadingTimeOut: 10000
             });
+            
             hls.loadSource(videoUrl);
             hls.attachMedia(video);
+            
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                document.getElementById('loading').style.display = 'none';
-                video.play();
+                console.log('Manifest parseado, tentando reproduzir...');
+                video.play().catch(e => console.error('Erro ao iniciar playback:', e));
             });
+            
+            hls.on(Hls.Events.FRAG_LOADED, () => {
+                hideLoading();
+            });
+            
+            video.addEventListener('playing', () => {
+                hideLoading();
+            });
+            
+            video.addEventListener('loadeddata', () => {
+                hideLoading();
+            });
+            
             hls.on(Hls.Events.ERROR, (event, data) => {
-                if (data.fatal) hls.startLoad();
+                console.error('Erro HLS:', data);
+                if (data.fatal) {
+                    switch(data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.error('Erro de rede, tentando recuperar...');
+                            hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.error('Erro de mídia, tentando recuperar...');
+                            hls.recoverMediaError();
+                            break;
+                        default:
+                            hideLoading();
+                            break;
+                    }
+                }
             });
         } 
         else if (video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = videoUrl;
-            video.onloadedmetadata = () => {
-                document.getElementById('loading').style.display = 'none';
-                video.play();
-            };
+            
+            video.addEventListener('loadedmetadata', () => {
+                video.play().catch(e => console.error('Erro ao iniciar playback:', e));
+            });
+            
+            video.addEventListener('playing', () => {
+                hideLoading();
+            });
+            
+            video.addEventListener('loadeddata', () => {
+                hideLoading();
+            });
+            
+            // Fallback para Safari/iOS
+            setTimeout(() => {
+                hideLoading();
+            }, 10000);
+        }
+        else {
+            loading.innerText = '❌ Player não suportado neste navegador';
         }
     </script>
 </body>
